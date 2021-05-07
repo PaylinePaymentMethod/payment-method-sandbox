@@ -1,6 +1,7 @@
 package com.payline.payment.sandbox.service.impl;
 
 import com.payline.payment.sandbox.utils.Constants;
+import com.payline.payment.sandbox.utils.PaymentResponseUtil;
 import com.payline.payment.sandbox.utils.properties.ReleaseProperties;
 import com.payline.pmapi.bean.configuration.AvailableNetwork;
 import com.payline.pmapi.bean.configuration.ReleaseInformation;
@@ -74,7 +75,7 @@ public class ConfigurationServiceImpl implements ConfigurationService {
         /* PasswordParameter */
         PasswordParameter passwordParameter = new PasswordParameter();
         passwordParameter.setDescription("Password parameter");
-        passwordParameter.setKey(Constants.ContractConfigurationKeys.PASSWORD_PARAMETER);
+        passwordParameter.setKey(Constants.ContractConfigurationKeys.PASSW_PARAMETER);
         passwordParameter.setLabel("Password");
         passwordParameter.setRequired(false);
 
@@ -83,11 +84,21 @@ public class ConfigurationServiceImpl implements ConfigurationService {
 
     @Override
     public Map<String, String> check(ContractParametersCheckRequest contractParametersCheckRequest) {
+
+        if(contractParametersCheckRequest.getContractConfiguration() != null){
+            PaymentResponseUtil.apiResponseDelay(contractParametersCheckRequest.getContractConfiguration());
+        }
+
         Map<String, String> errors = new HashMap<>();
 
         // Retrieve the expected behaviour in the listbox parameter
         String behaviour = contractParametersCheckRequest.getAccountInfo()
                 .get(Constants.ContractConfigurationKeys.LISTBOX_PARAMETER);
+
+        if (behaviour == null) {
+            errors.put("listbox", "ListBox parameter is null");
+            return errors;
+        }
 
         switch( behaviour ){
             case CHECK_OK:

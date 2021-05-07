@@ -1,5 +1,7 @@
 package com.payline.payment.sandbox.utils.properties;
 
+import com.payline.payment.sandbox.exception.PluginException;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
@@ -30,19 +32,19 @@ public abstract class AbstractProperties {
     void readProperties() {
         String filename = getFilename();
         if (filename == null || filename.isEmpty()) {
-            throw new RuntimeException("Properties filename must not be null or empty");
+            throw new PluginException("Properties filename must not be null or empty");
         }
 
         InputStream inputStream = AbstractProperties.class.getClassLoader().getResourceAsStream(filename);
         if( inputStream == null ){
-            throw new RuntimeException("Cannot find properties file: " + filename);
+            throw new PluginException("Cannot find properties file: " + filename);
         }
 
         try {
             this.properties.load(inputStream);
         }
         catch (IOException e) {
-            throw new RuntimeException("Unable to load properties files: "+filename, e);
+            throw new PluginException("Unable to load properties files: "+filename, e);
         }
     }
 

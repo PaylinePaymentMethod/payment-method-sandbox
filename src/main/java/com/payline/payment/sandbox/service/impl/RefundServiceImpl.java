@@ -11,9 +11,14 @@ import com.payline.pmapi.bean.refund.response.impl.RefundResponseSuccess;
 import com.payline.pmapi.service.RefundService;
 
 public class RefundServiceImpl extends AbstractService<RefundResponse> implements RefundService {
-
+    private static final String REFUND_REQUEST = "refundRequest";
     @Override
     public RefundResponse refundRequest(RefundRequest refundRequest) {
+
+        if(refundRequest.getContractConfiguration() != null){
+            PaymentResponseUtil.apiResponseDelay(refundRequest.getContractConfiguration());
+        }
+
         this.verifyRequest(refundRequest);
 
         String amount = refundRequest.getAmount().getAmountInSmallestUnit().toString();
@@ -21,11 +26,11 @@ public class RefundServiceImpl extends AbstractService<RefundResponse> implement
         switch( amount ){
             /* ResetResponseSuccess */
             case "70000":
-                Logger.log(this.getClass().getSimpleName(),"refundRequest", amount, "RefundResponseSuccess");
+                Logger.log(this.getClass().getSimpleName(),REFUND_REQUEST, amount, "RefundResponseSuccess");
                 return RefundResponseSuccess.RefundResponseSuccessBuilder.aRefundResponseSuccess()
                         .build();
             case "70001":
-                Logger.log(this.getClass().getSimpleName(),"refundRequest", amount, "RefundResponseSuccess avec partnerTransactionId & statusCode");
+                Logger.log(this.getClass().getSimpleName(),REFUND_REQUEST, amount, "RefundResponseSuccess avec partnerTransactionId & statusCode");
                 return RefundResponseSuccess.RefundResponseSuccessBuilder.aRefundResponseSuccess()
                         .withPartnerTransactionId(PaymentResponseUtil.PARTNER_TRANSACTION_ID)
                         .withStatusCode("STATUS")
@@ -33,11 +38,11 @@ public class RefundServiceImpl extends AbstractService<RefundResponse> implement
 
             /* ResetResponseFailure */
             case "70100":
-                Logger.log(this.getClass().getSimpleName(),"refundRequest", amount, "RefundResponseFailure");
+                Logger.log(this.getClass().getSimpleName(),REFUND_REQUEST, amount, "RefundResponseFailure");
                 return RefundResponseFailure.RefundResponseFailureBuilder.aRefundResponseFailure()
                         .build();
             case "70101":
-                Logger.log(this.getClass().getSimpleName(),"refundRequest", amount, "RefundResponseFailure avec failureCause(REFUSED) & errorCode & partnerTransactionId");
+                Logger.log(this.getClass().getSimpleName(),REFUND_REQUEST, amount, "RefundResponseFailure avec failureCause(REFUSED) & errorCode & partnerTransactionId");
                 return RefundResponseFailure.RefundResponseFailureBuilder.aRefundResponseFailure()
                         .withErrorCode("Error code less than 50 characters long")
                         .withFailureCause(FailureCause.REFUSED)
@@ -45,7 +50,7 @@ public class RefundServiceImpl extends AbstractService<RefundResponse> implement
                         .build();
 
             default:
-                return super.generic(this.getClass().getSimpleName(),"refundRequest", amount );
+                return super.generic(this.getClass().getSimpleName(),REFUND_REQUEST, amount );
         }
     }
 

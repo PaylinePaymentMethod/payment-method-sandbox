@@ -1,5 +1,6 @@
 package com.payline.payment.sandbox.service.impl;
 
+import com.payline.payment.sandbox.exception.PluginException;
 import com.payline.payment.sandbox.utils.Logger;
 import com.payline.payment.sandbox.utils.PaymentResponseUtil;
 import com.payline.payment.sandbox.utils.service.AbstractService;
@@ -11,45 +12,45 @@ import com.payline.pmapi.bean.payment.response.impl.PaymentResponseActiveWaiting
 import com.payline.pmapi.bean.payment.response.impl.PaymentResponseFormUpdated;
 import com.payline.pmapi.bean.payment.response.impl.PaymentResponseRedirect;
 import com.payline.pmapi.bean.payment.response.impl.PaymentResponseSuccess;
-import com.payline.pmapi.bean.paymentform.bean.field.*;
-import com.payline.pmapi.bean.paymentform.bean.field.specific.*;
-import com.payline.pmapi.bean.paymentform.bean.form.CustomForm;
-import com.payline.pmapi.bean.paymentform.bean.form.PartnerWidgetForm;
-import com.payline.pmapi.bean.paymentform.bean.form.partnerwidget.PartnerWidgetOnPay;
-import com.payline.pmapi.bean.paymentform.bean.form.partnerwidget.PartnerWidgetOnPayCallBack;
-import com.payline.pmapi.bean.paymentform.bean.form.partnerwidget.PartnerWidgetScriptImport;
 import com.payline.pmapi.bean.paymentform.response.configuration.PaymentFormConfigurationResponse;
 import com.payline.pmapi.bean.paymentform.response.configuration.impl.PaymentFormConfigurationResponseSpecific;
+import com.payline.pmapi.logger.LogManager;
 import com.payline.pmapi.service.PaymentService;
 
-import java.math.BigInteger;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 public class PaymentServiceImpl extends AbstractService<PaymentResponse> implements PaymentService {
+
+    private static final org.apache.logging.log4j.Logger LOGGER = LogManager.getLogger(PaymentServiceImpl.class);
+    private static final String PAYMENT_REQUEST = "paymentRequest";
+
     /**------------------------------------------------------------------------------------------------------------------*/
     @Override
     public PaymentResponse paymentRequest(PaymentRequest paymentRequest) {
+
+        if(paymentRequest.getContractConfiguration() != null){
+                PaymentResponseUtil.apiResponseDelay(paymentRequest.getContractConfiguration());
+        }
+
         this.verifyRequest(paymentRequest);
 
         String amount = paymentRequest.getAmount().getAmountInSmallestUnit().toString();
 
         Boolean isPaymentFormUpdatedFilled = false;
-        if(!paymentRequest.getRequestContext().getRequestData().isEmpty()){
-            if(paymentRequest.getRequestContext().getRequestData().get("step").equals("2")){
+
+            if(!paymentRequest.getRequestContext().getRequestData().isEmpty() && paymentRequest.getRequestContext().getRequestData().get("step").equals("2")){
                 isPaymentFormUpdatedFilled = true;
             }
-        }
 
         /* PaymentResponseSuccess */
-        if ("10000".equals(amount) || amount.matches("^[3-9][0-9]*$") || ((("10300".equals(amount) ||"10301".equals(amount)) && isPaymentFormUpdatedFilled))) {
-            String transactionAdditionalData = new String();
+        if ("10000".equals(amount) || amount.matches("^[3-9][0-9]*$") || (("10300".equals(amount) ||"10301".equals(amount)) && isPaymentFormUpdatedFilled)) {
+            String transactionAdditionalData = "";
+
+            Logger.log(this.getClass().getSimpleName(),PAYMENT_REQUEST, amount, "PaymentResponseSuccess minimale");
 
             PaymentResponseSuccess.PaymentResponseSuccessBuilder builder = PaymentResponseSuccess.PaymentResponseSuccessBuilder.aPaymentResponseSuccess()
                     .withPartnerTransactionId(PaymentResponseUtil.PARTNER_TRANSACTION_ID)
@@ -78,19 +79,19 @@ public class PaymentServiceImpl extends AbstractService<PaymentResponse> impleme
 
         /* PaymentResponseFailure */
         if( "10100".equals( amount ) ){
-            Logger.log(this.getClass().getSimpleName(),"paymentRequest", amount, "PaymentResponseFailure avec failureCause(INVALID_DATA) & errorCode (<= 50 caractères)");
+            Logger.log(this.getClass().getSimpleName(),PAYMENT_REQUEST, amount, "PaymentResponseFailure avec failureCause(INVALID_DATA) & errorCode (<= 50 caractères)");
             return PaymentResponseUtil.failureClassic();
         }
         if( "10101".equals( amount ) ){
-            Logger.log(this.getClass().getSimpleName(),"paymentRequest", amount, "PaymentResponseFailure avec failureCause(INVALID_DATA)");
+            Logger.log(this.getClass().getSimpleName(),PAYMENT_REQUEST, amount, "PaymentResponseFailure avec failureCause(INVALID_DATA)");
             return PaymentResponseUtil.failureMinimal();
         }
         if( "10102".equals( amount ) ){
-            Logger.log(this.getClass().getSimpleName(),"paymentRequest", amount, "PaymentResponseFailure avec failureCause(INVALID_DATA) & errorCode (> 50 caractères)");
+            Logger.log(this.getClass().getSimpleName(),PAYMENT_REQUEST, amount, "PaymentResponseFailure avec failureCause(INVALID_DATA) & errorCode (> 50 caractères)");
             return PaymentResponseUtil.failureLongErrorCode();
         }
         if( "10103".equals( amount ) ){
-            Logger.log(this.getClass().getSimpleName(),"paymentRequest", amount, "PaymentResponseFailure avec failureCause(INVALID_DATA) & errorCode & partnerTransactionId");
+            Logger.log(this.getClass().getSimpleName(),PAYMENT_REQUEST, amount, "PaymentResponseFailure avec failureCause(INVALID_DATA) & errorCode & partnerTransactionId");
             return PaymentResponseUtil.failureWithPartnerTransactionId();
         }
 
@@ -102,17 +103,18 @@ public class PaymentServiceImpl extends AbstractService<PaymentResponse> impleme
                     .withUrl(new URL("https", "www.google.com", "/fr"))
                     .build();
         } catch (MalformedURLException e) {
-            e.printStackTrace();
+            LOGGER.error("RedirectionRequest unable to create the URL: ", e);
+            throw new PluginException("Plugin error, RedirectionRequest unable to create the URL: ", e);
         }
         if( "10200".equals( amount ) || amount.startsWith("2") ){
-            Logger.log(this.getClass().getSimpleName(),"paymentRequest", amount, "PaymentResponseRedirect avec redirectionRequest & partnerTransactionId");
+            Logger.log(this.getClass().getSimpleName(),PAYMENT_REQUEST, amount, "PaymentResponseRedirect avec redirectionRequest & partnerTransactionId");
             return PaymentResponseRedirect.PaymentResponseRedirectBuilder.aPaymentResponseRedirect()
                     .withRedirectionRequest(redirectionRequest)
                     .withPartnerTransactionId(PaymentResponseUtil.PARTNER_TRANSACTION_ID)
                     .build();
         }
         if( "10201".equals( amount ) ){
-            Logger.log(this.getClass().getSimpleName(),"paymentRequest", amount, "PaymentResponseRedirect avec redirectionRequest & partnerTransactionId & statusCode & requestContext");
+            Logger.log(this.getClass().getSimpleName(),PAYMENT_REQUEST, amount, "PaymentResponseRedirect avec redirectionRequest & partnerTransactionId & statusCode & requestContext");
             Map<String, String> context = new HashMap<>();
             context.put("key", "value");
             return PaymentResponseRedirect.PaymentResponseRedirectBuilder.aPaymentResponseRedirect()
@@ -129,72 +131,67 @@ public class PaymentServiceImpl extends AbstractService<PaymentResponse> impleme
 
         /* PaymentResponseFormUpdated */
         if ("10300".equals(amount)) {
-            try {
-                // Create the PaymentFormConfigurationResponse
-                PaymentFormConfigurationResponse paymentFormConfigurationResponse = PaymentFormConfigurationResponseSpecific
-                        .PaymentFormConfigurationResponseSpecificBuilder
-                        .aPaymentFormConfigurationResponseSpecific()
-                        .withPaymentForm(PaymentResponseUtil.aCustomForm())
+            Logger.log(this.getClass().getSimpleName(), PAYMENT_REQUEST, amount, "PaymentResponseFormUpdated avec un formulaire complet");
+            // Create the PaymentFormConfigurationResponse
+            PaymentFormConfigurationResponse paymentFormConfigurationResponse = PaymentFormConfigurationResponseSpecific
+                    .PaymentFormConfigurationResponseSpecificBuilder
+                    .aPaymentFormConfigurationResponseSpecific()
+                    .withPaymentForm(PaymentResponseUtil.aCustomForm())
 
-                        .build();
+                    .build();
 
-                Map<String, String> context = new HashMap<>();
-                context.put("step", "2");
+            Map<String, String> context = new HashMap<>();
+            context.put("step", "2");
 
-                // Return the PaymentResponseFormUpdated
-                return PaymentResponseFormUpdated.PaymentResponseFormUpdatedBuilder
-                        .aPaymentResponseFormUpdated()
-                        .withPaymentFormConfigurationResponse(paymentFormConfigurationResponse)
-                        .withRequestContext(RequestContext.RequestContextBuilder.aRequestContext()
-                                .withRequestData(context)
-                                .build())
-                        .build();
-            } catch (MalformedURLException e) {
-                e.printStackTrace();
-            }
+            // Return the PaymentResponseFormUpdated
+            return PaymentResponseFormUpdated.PaymentResponseFormUpdatedBuilder
+                    .aPaymentResponseFormUpdated()
+                    .withPaymentFormConfigurationResponse(paymentFormConfigurationResponse)
+                    .withRequestContext(RequestContext.RequestContextBuilder.aRequestContext()
+                            .withRequestData(context)
+                            .build())
+                    .build();
+
         }
         /* PaymentResponseFormUpdated */
         if ("10301".equals(amount)) {
-                // Create the PaymentFormConfigurationResponse
+            Logger.log(this.getClass().getSimpleName(), PAYMENT_REQUEST, amount, "PaymentResponseFormUpdated avec un PartnerWidgetForm");
+            // Create the PaymentFormConfigurationResponse
             PaymentFormConfigurationResponse paymentFormConfigurationResponse = null;
-            try {
-                paymentFormConfigurationResponse = PaymentFormConfigurationResponseSpecific
-                        .PaymentFormConfigurationResponseSpecificBuilder
-                        .aPaymentFormConfigurationResponseSpecific()
-                        .withPaymentForm( PaymentResponseUtil.aPartnerWidgetForm())
 
-                        .build();
-            } catch (MalformedURLException e) {
-                e.printStackTrace();
-            }
+            paymentFormConfigurationResponse = PaymentFormConfigurationResponseSpecific
+                    .PaymentFormConfigurationResponseSpecificBuilder
+                    .aPaymentFormConfigurationResponseSpecific()
+                    .withPaymentForm(PaymentResponseUtil.aPartnerWidgetForm())
+                    .build();
 
 
             Map<String, String> context = new HashMap<>();
-                context.put("step", "2");
+            context.put("step", "2");
 
-                // Return the PaymentResponseFormUpdated
-                return PaymentResponseFormUpdated.PaymentResponseFormUpdatedBuilder
-                        .aPaymentResponseFormUpdated()
-                        .withPaymentFormConfigurationResponse(paymentFormConfigurationResponse)
-                        .withRequestContext(RequestContext.RequestContextBuilder.aRequestContext()
-                                .withRequestData(context)
-                                .build())
-                        .build();
+            // Return the PaymentResponseFormUpdated
+            return PaymentResponseFormUpdated.PaymentResponseFormUpdatedBuilder
+                    .aPaymentResponseFormUpdated()
+                    .withPaymentFormConfigurationResponse(paymentFormConfigurationResponse)
+                    .withRequestContext(RequestContext.RequestContextBuilder.aRequestContext()
+                            .withRequestData(context)
+                            .build())
+                    .build();
         }
         /* PaymentResponseDoPayment */
         if( "10400".equals( amount ) ){
-            Logger.log(this.getClass().getSimpleName(),"paymentRequest", amount, "PaymentResponseDoPayment avec partnerTransactionId & paymentMode");
+            Logger.log(this.getClass().getSimpleName(),PAYMENT_REQUEST, amount, "PaymentResponseDoPayment avec partnerTransactionId & paymentMode");
             return PaymentResponseUtil.doPaymentMinimal();
         }
 
         /* PaymentResponseActiveWaiting */
         if( "10500".equals( amount ) ){
-            Logger.log(this.getClass().getSimpleName(),"paymentRequest", amount, "PaymentResponseActiveWaiting");
+            Logger.log(this.getClass().getSimpleName(),PAYMENT_REQUEST, amount, "PaymentResponseActiveWaiting");
             return new PaymentResponseActiveWaiting();
         }
 
         /* Generic plugin behaviours */
-        return super.generic(this.getClass().getSimpleName(),"paymentRequest", amount );
+        return super.generic(this.getClass().getSimpleName(),PAYMENT_REQUEST, amount );
     }
     /**------------------------------------------------------------------------------------------------------------------*/
     /**
@@ -212,96 +209,6 @@ public class PaymentServiceImpl extends AbstractService<PaymentResponse> impleme
         }
     }
 
-    /**------------------------------------------------------------------------------------------------------------------*/
-    /**
-     * @param paymentRequest
-     * @return
-     */
-    // TODO: remove (lors du traitement du ticket PAYLAPMEXT-207)
-    private PaymentResponse processRequestWithPaymentResponseFormUpdated(PaymentRequest paymentRequest) {
-
-        BigInteger amount = paymentRequest.getAmount().getAmountInSmallestUnit();
-
-        PaymentFormConfigurationResponse paymentFormConfigurationResponse = null;
-
-        if (new BigInteger("10003").equals(amount)) {
-
-            PartnerWidgetScriptImport scriptImport = null;
-
-            try {
-
-                scriptImport = PartnerWidgetScriptImport.WidgetPartnerScriptImportBuilder
-                        .aWidgetPartnerScriptImport()
-                        .withUrl(new URL("https://www.google.com"))
-                        .withCache(true)
-                        .withAsync(true)
-                        .build();
-
-            } catch (MalformedURLException e) {
-                e.printStackTrace();
-            }
-
-            PartnerWidgetOnPay onPay = PartnerWidgetOnPayCallBack.WidgetContainerOnPayCallBackBuilder
-                    .aWidgetContainerOnPayCallBack()
-                    .withName("notUsedButMandatory")
-                    .build();
-
-            PartnerWidgetForm paymentForm = PartnerWidgetForm.WidgetPartnerFormBuilder.aWidgetPartnerForm()
-                    .withDescription("")
-                    .withScriptImport(scriptImport)
-                    .withOnPay(onPay)
-                    .build();
-
-            paymentFormConfigurationResponse = PaymentFormConfigurationResponseSpecific.PaymentFormConfigurationResponseSpecificBuilder
-                    .aPaymentFormConfigurationResponseSpecific()
-                    .withPaymentForm(paymentForm)
-                    .build();
-
-            return PaymentResponseFormUpdated.PaymentResponseFormUpdatedBuilder
-                    .aPaymentResponseFormUpdated()
-                    .withPaymentFormConfigurationResponse(paymentFormConfigurationResponse)
-                    .build();
-
-        }
-
-        if (new BigInteger("10004").equals(amount)) {
-
-            List<PaymentFormField> customFields = new ArrayList<>();
-
-            CustomForm customForm = CustomForm.builder()
-                    .withDescription("")
-                    .withCustomFields(customFields)
-                    .withButtonText("Button")
-                    .withDisplayButton(true)
-                    .build();
-
-            paymentFormConfigurationResponse = PaymentFormConfigurationResponseSpecific
-                    .PaymentFormConfigurationResponseSpecificBuilder
-                    .aPaymentFormConfigurationResponseSpecific()
-                    .withPaymentForm(customForm)
-                    .build();
-
-            Map<String, String> requestContextMap = new HashMap<>();
-            Map<String, String> requestSensitiveContext = paymentRequest.getRequestContext().getSensitiveRequestData();
-
-            RequestContext requestContext = RequestContext
-                    .RequestContextBuilder
-                    .aRequestContext()
-                    .withRequestData(requestContextMap)
-                    .withSensitiveRequestData(requestSensitiveContext)
-                    .build();
-
-            return PaymentResponseFormUpdated.PaymentResponseFormUpdatedBuilder
-                    .aPaymentResponseFormUpdated()
-                    .withPaymentFormConfigurationResponse(paymentFormConfigurationResponse)
-                    .withRequestContext(requestContext)
-                    .build();
-
-        }
-
-        return null;
-
-    }
     /**------------------------------------------------------------------------------------------------------------------*/
 
 }

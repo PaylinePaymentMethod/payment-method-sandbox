@@ -14,7 +14,8 @@ public class Constants {
         public static final String INPUT_PARAMETER = "input";
         public static final String LISTBOX_PARAMETER = "listbox";
         public static final String NETWORK_LISTBOX_PARAMETER = "networkListBox";
-        public static final String PASSWORD_PARAMETER = "password";
+        public static final String PASSW_PARAMETER = "password";
+        public static final String PAYMENT_FORM_LOGO_RESPONSE_TYPE = "PaymentFormLogoResponseType";
 
         /* Static utility class : no need to instantiate it (Sonar bug fix) */
         private ContractConfigurationKeys(){}

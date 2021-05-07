@@ -1,8 +1,10 @@
 package com.payline.payment.sandbox.utils;
 
+import com.payline.payment.sandbox.exception.PluginException;
 import com.payline.pmapi.bean.common.Amount;
 import com.payline.pmapi.bean.common.FailureCause;
 import com.payline.pmapi.bean.common.OnHoldCause;
+import com.payline.pmapi.bean.payment.ContractConfiguration;
 import com.payline.pmapi.bean.payment.response.PaymentData3DS;
 import com.payline.pmapi.bean.payment.response.PaymentModeCard;
 import com.payline.pmapi.bean.payment.response.buyerpaymentidentifier.BankAccount;
@@ -21,6 +23,7 @@ import com.payline.pmapi.bean.paymentform.bean.form.PartnerWidgetForm;
 import com.payline.pmapi.bean.paymentform.bean.form.partnerwidget.*;
 import com.payline.pmapi.bean.paymentform.bean.scheme.CommonScheme;
 import com.payline.pmapi.bean.paymentform.bean.scheme.Scheme;
+import com.payline.pmapi.logger.LogManager;
 
 import java.math.BigInteger;
 import java.net.MalformedURLException;
@@ -29,11 +32,17 @@ import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.Currency;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
 public class PaymentResponseUtil {
 
-    public final static String PARTNER_TRANSACTION_ID = "PARTNER_ID.0123456789";
+    private static final org.apache.logging.log4j.Logger LOGGER = LogManager.getLogger(PaymentResponseUtil.class);
+    public static final String PARTNER_TRANSACTION_ID = "PARTNER_ID.0123456789";
+    private static final String REQUIRED_ERROR_MESSAGE = "Required Error Message";
+    private static final String VALIDATION_ERROR_MESSAGE = "Validation Error Message";
+
+    private PaymentResponseUtil() { throw new IllegalStateException("Utility class");}
 
     public static PaymentResponseDoPayment doPaymentMinimal(){
         Card card = Card.CardBuilder.aCard()
@@ -182,24 +191,34 @@ public class PaymentResponseUtil {
     /**
      * @returnt a PaymentResponseFormUpdated initialised with all possible parameters
      */
-    public static CustomForm aCustomForm() throws MalformedURLException {
+    public static CustomForm aCustomForm() {
 
         List<PaymentFormField> customFields = new ArrayList<>();
 
         // Add a PaymentFormDisplayFieldIFrame
-        customFields.add(PaymentFormDisplayFieldIFrame.PaymentFormDisplayFieldIFrameBuilder.aPaymentFormDisplayFieldIFrame()
-                .withHeight(100)
-                .withSrc(new URL("https://www.google.com"))
-                .withWidth(100)
-                .build()
-        );
+        try {
+            customFields.add(PaymentFormDisplayFieldIFrame.PaymentFormDisplayFieldIFrameBuilder.aPaymentFormDisplayFieldIFrame()
+                    .withHeight(100)
+                    .withSrc(new URL("https://www.google.com"))
+                    .withWidth(100)
+                    .build()
+            );
+        } catch (MalformedURLException e) {
+            LOGGER.error("PaymentFormDisplayFieldIFrame unable to create the URL: ", e);
+            throw new PluginException("Plugin error, PaymentFormDisplayFieldIFrame unable to create the URL: ", e);
+        }
 
         // Add PaymentFormDisplayFieldLink
-        customFields.add(PaymentFormDisplayFieldLink.PaymentFormDisplayFieldLinkBuilder.aPaymentFormDisplayFieldLink()
-                .withName("Nom")
-                .withTitle("Titre")
-                .withUrl(new URL("https://www.google.com"))
-                .build());
+        try {
+            customFields.add(PaymentFormDisplayFieldLink.PaymentFormDisplayFieldLinkBuilder.aPaymentFormDisplayFieldLink()
+                    .withName("Nom")
+                    .withTitle("Titre")
+                    .withUrl(new URL("https://www.google.com"))
+                    .build());
+        } catch (MalformedURLException e) {
+            LOGGER.error("PaymentFormDisplayFieldLink unable to create the URL: ", e);
+            throw new PluginException("Plugin error, PaymentFormDisplayFieldLink unable to create the URL: ", e);
+        }
 
         // Add PaymentFormDisplayFieldText
         customFields.add(PaymentFormDisplayFieldText.PaymentFormDisplayFieldTextBuilder.aPaymentFormDisplayFieldText()
@@ -210,14 +229,16 @@ public class PaymentResponseUtil {
         customFields.add(PaymentFormInputFieldAmount.PaymentFormInputFieldAmountBuilder.aPaymentFormInputFieldAmount()
                 .withKey("Key1")
                 .withLabel("Label")
-                .withMaxAmount(new Amount(new BigInteger(  "10000"), Currency.getInstance("EUR")))
-                .withMinAmount(new Amount(new BigInteger(  "10400"), Currency.getInstance("EUR")))
+                .withMaxAmount(new Amount(BigInteger.valueOf(10000), Currency.getInstance("EUR")))
+                .withMinAmount(new Amount(BigInteger.valueOf(10400), Currency.getInstance("EUR")))
                 .withRequired(true)
                 .withValue("Value1")
                 .withDisabled(false)
-                .withRequiredErrorMessage("Required Error Message")
+                .withRequiredErrorMessage(REQUIRED_ERROR_MESSAGE)
                 .withSecured(true)
-                .withValidationErrorMessage("Validation Error Message")
+                .withValidationErrorMessage(VALIDATION_ERROR_MESSAGE)
+                .withCurrencyCode("978")
+                .withCurrencyLocale("")
                 .build());
 
         // Add PaymentFormInputFieldBic
@@ -226,7 +247,7 @@ public class PaymentResponseUtil {
                 .withKey("Key2")
                 .withLabel("Label2")
                 .withRequired(true)
-                .withRequiredErrorMessage("Required Error Message")
+                .withRequiredErrorMessage(REQUIRED_ERROR_MESSAGE)
                 .build());
 
         // Add PaymentFormInputFieldBirthdate
@@ -235,7 +256,7 @@ public class PaymentResponseUtil {
                 .withKey("Key3")
                 .withLabel("Label3")
                 .withRequired(true)
-                .withRequiredErrorMessage("Required Error Message")
+                .withRequiredErrorMessage(REQUIRED_ERROR_MESSAGE)
                 .build());
 
         // Add PaymentFormInputFieldCardNumber
@@ -248,7 +269,7 @@ public class PaymentResponseUtil {
                 .withKey("Key4")
                 .withLabel("Label4")
                 .withRequired(true)
-                .withRequiredErrorMessage("Required Error Message")
+                .withRequiredErrorMessage(REQUIRED_ERROR_MESSAGE)
                 .withSchemes(schemes)
                 .build());
 
@@ -258,7 +279,7 @@ public class PaymentResponseUtil {
                 .withKey("Key5")
                 .withLabel("Label5")
                 .withRequired(true)
-                .withRequiredErrorMessage("Required Error Message")
+                .withRequiredErrorMessage(REQUIRED_ERROR_MESSAGE)
                 .build());
 
         // Add PaymentFormInputFieldCheckbox
@@ -268,7 +289,7 @@ public class PaymentResponseUtil {
                 .withLabel("Label6")
                 .withPrechecked(false)
                 .withRequired(true)
-                .withRequiredErrorMessage("Required Error Message")
+                .withRequiredErrorMessage(REQUIRED_ERROR_MESSAGE)
                 .withSecured(true)
                 .build());
 
@@ -278,7 +299,7 @@ public class PaymentResponseUtil {
                 .withKey("Key7")
                 .withLabel("Label7")
                 .withRequired(true)
-                .withRequiredErrorMessage("Required Error Message")
+                .withRequiredErrorMessage(REQUIRED_ERROR_MESSAGE)
                 .build());
 
         // Add PaymentFormInputFieldExpirationDate
@@ -287,7 +308,7 @@ public class PaymentResponseUtil {
                 .withKey("Key8")
                 .withLabel("Label8")
                 .withRequired(true)
-                .withRequiredErrorMessage("Required Error Message")
+                .withRequiredErrorMessage(REQUIRED_ERROR_MESSAGE)
                 .build());
 
         // Add PaymentFormInputFieldIban
@@ -296,7 +317,7 @@ public class PaymentResponseUtil {
                 .withKey("Key9")
                 .withLabel("Label9")
                 .withRequired(true)
-                .withRequiredErrorMessage("Required Error Message")
+                .withRequiredErrorMessage(REQUIRED_ERROR_MESSAGE)
                 .build());
 
         // Add PaymentFormInputFieldSelect
@@ -313,10 +334,10 @@ public class PaymentResponseUtil {
                 .withLabel("Label11")
                 .withPlaceholder("PlaceHolder")
                 .withRequired(true)
-                .withRequiredErrorMessage("Required Error Message")
+                .withRequiredErrorMessage(REQUIRED_ERROR_MESSAGE)
                 .withSecured(true)
                 .withSelectOptions(selectOptions)
-                .withValidationErrorMessage("Validation Error Message")
+                .withValidationErrorMessage(VALIDATION_ERROR_MESSAGE)
                 .build());
 
         // Add PaymentFormInputFieldText
@@ -330,42 +351,46 @@ public class PaymentResponseUtil {
                 .withLabel("Label12")
                 .withPlaceholder("PlaceHolder")
                 .withRequired(true)
-                .withRequiredErrorMessage("Required Error Message")
+                .withRequiredErrorMessage(REQUIRED_ERROR_MESSAGE)
                 .withSecured(true)
                 .withValidation(validation)
-                .withValidationErrorMessage("Validation Error Message")
+                .withValidationErrorMessage(VALIDATION_ERROR_MESSAGE)
                 .withValue("Value12")
                 .build());
 
         // Create the custom form
-        CustomForm customForm = CustomForm.builder()
+        return CustomForm.builder()
                 .withDescription("")
                 .withCustomFields(customFields)
                 .withButtonText("Button")
                 .withDisplayButton(true)
                 .build();
-        return customForm;
-
     }
 
     /** @return a PartnerWidgetForm initialised with all possible parameters */
-    public static PartnerWidgetForm aPartnerWidgetForm() throws MalformedURLException {
-         String SCRIPT_BEFORE_IMPORT ="<script>" +
+    public static PartnerWidgetForm aPartnerWidgetForm() {
+           String scriptBeforeImport = "<script>" +
                  "console.log(\"Console log Before\");" +
                  "</script>";
 
-         String SCRIPT_AFTER_IMPORT ="<script>" +
+         String scriptAfterImport = "<script>" +
                  "console.log(\"Console log after\");" +
                  "</script>";
 
 
         // script to import
-        PartnerWidgetScriptImport scriptImport = PartnerWidgetScriptImport.WidgetPartnerScriptImportBuilder
-                .aWidgetPartnerScriptImport()
-                .withUrl(new URL("https://www.payline.com"))
-                .withCache(true)
-                .withAsync(true)
-                .build();
+        PartnerWidgetScriptImport scriptImport = null;
+        try {
+            scriptImport = PartnerWidgetScriptImport.WidgetPartnerScriptImportBuilder
+                    .aWidgetPartnerScriptImport()
+                    .withUrl(new URL("https://www.payline.com"))
+                    .withCache(true)
+                    .withAsync(true)
+                    .build();
+        } catch (MalformedURLException e) {
+            LOGGER.error("PartnerWidgetScriptImport unable to create the URL: ", e);
+            throw new PluginException("Plugin error, PartnerWidgetScriptImport unable to create the URL: ",e);
+        }
 
         // div that contains the script to load
         PartnerWidgetContainer container = PartnerWidgetContainerTargetDivId.WidgetPartnerContainerTargetDivIdBuilder
@@ -379,18 +404,34 @@ public class PaymentResponseUtil {
                 .withName("paylineProcessPaymentCallback")
                 .build();
 
-        PartnerWidgetForm widgetForm = PartnerWidgetForm.WidgetPartnerFormBuilder
+        return PartnerWidgetForm.WidgetPartnerFormBuilder
                 .aWidgetPartnerForm()
                 .withDescription("Partner Widget Form Description")
                 .withScriptImport(scriptImport)
-                .withLoadingScriptBeforeImport(SCRIPT_BEFORE_IMPORT)
-                .withLoadingScriptAfterImport(SCRIPT_AFTER_IMPORT)
+                .withLoadingScriptBeforeImport(scriptBeforeImport)
+                .withLoadingScriptAfterImport(scriptAfterImport)
                 .withContainer(container)
                 .withOnPay(onPay)
                 .withPerformsAutomaticRedirection(true)
                 .build();
 
-         return widgetForm;
+
+    }
+    /**
+     * Wait 5 seconds before continue
+     * @return
+     */
+    public static void apiResponseDelay(ContractConfiguration contractConfiguration) {
+        if (contractConfiguration.getContractProperties().containsKey("delay") && contractConfiguration.getProperty("delay").getValue().equals("true")) {
+            try {
+                LOGGER.info("Attente de réponse de l'API ... ");
+                TimeUnit.SECONDS.sleep(2);
+            } catch (InterruptedException e) {
+                LOGGER.error("Error during the delay time: ", e);
+                // Restore interrupted state...
+                Thread.currentThread().interrupt();
+            }
+        }
     }
 
 }

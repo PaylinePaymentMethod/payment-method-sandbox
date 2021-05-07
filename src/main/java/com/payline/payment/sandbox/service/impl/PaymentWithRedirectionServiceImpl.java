@@ -12,6 +12,11 @@ public class PaymentWithRedirectionServiceImpl extends AbstractService<PaymentRe
 
     @Override
     public PaymentResponse finalizeRedirectionPayment(RedirectionPaymentRequest redirectionPaymentRequest) {
+
+        if(redirectionPaymentRequest.getContractConfiguration() != null){
+            PaymentResponseUtil.apiResponseDelay(redirectionPaymentRequest.getContractConfiguration());
+        }
+
         this.verifyRequest(redirectionPaymentRequest);
 
         String amount = redirectionPaymentRequest.getAmount().getAmountInSmallestUnit().toString();
@@ -20,6 +25,11 @@ public class PaymentWithRedirectionServiceImpl extends AbstractService<PaymentRe
 
     @Override
     public PaymentResponse handleSessionExpired(TransactionStatusRequest transactionStatusRequest) {
+
+        if(transactionStatusRequest.getContractConfiguration() != null){
+            PaymentResponseUtil.apiResponseDelay(transactionStatusRequest.getContractConfiguration());
+        }
+
         this.verifyRequest(transactionStatusRequest);
 
         String amount = transactionStatusRequest.getAmount().getAmountInSmallestUnit().toString();
@@ -61,6 +71,7 @@ public class PaymentWithRedirectionServiceImpl extends AbstractService<PaymentRe
     }
 
     private PaymentResponse process(String method, String amount ){
+
         // retrieve the last 3 digits of the amount, which identify the response type
         String amountLastDigits = amount.substring(2);
 
